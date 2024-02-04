@@ -2,12 +2,21 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using Cinemachine;
 
 public class CarController : MonoBehaviour
 {
     private float horizontalInput, verticalInput;
     private float currentSteerAngle, currentbreakForce;
     private bool isBreaking;
+
+    [SerializeField] CinemachineVirtualCamera virtualCamera;
+    [SerializeField] Transform firstPersonLookPoint;
+    [SerializeField ] Transform ThirdPersonLookPoint;
+
+    [SerializeField] private Vector3 firstPersonOffset;
+    [SerializeField] private Vector3 thirdPersonOffset;
+    private bool isFirstPersonView = false;
 
     // Settings
     [SerializeField] private float motorForce, breakForce, maxSteerAngle;
@@ -20,12 +29,26 @@ public class CarController : MonoBehaviour
     [SerializeField] private Transform frontLeftWheelTransform, frontRightWheelTransform;
     [SerializeField] private Transform rearLeftWheelTransform, rearRightWheelTransform;
 
+    // Center of Mass
+    [SerializeField] private Transform centerOfMass;
+
+    // Start is called before the first frame update
+    void Start()
+    {
+        // Adjust the center of mass
+        if (centerOfMass)
+        {
+            GetComponent<Rigidbody>().centerOfMass = centerOfMass.localPosition;
+        }
+        
+    }
     private void FixedUpdate()
     {
         GetInput();
         HandleMotor();
         HandleSteering();
         UpdateWheels();
+        CameronView();
     }
 
     private void GetInput()
@@ -65,18 +88,59 @@ public class CarController : MonoBehaviour
 
     private void UpdateWheels()
     {
-        UpdateSingleWheel(frontLeftWheelCollider, frontLeftWheelTransform);
-        UpdateSingleWheel(frontRightWheelCollider, frontRightWheelTransform);
-        UpdateSingleWheel(rearRightWheelCollider, rearRightWheelTransform);
-        UpdateSingleWheel(rearLeftWheelCollider, rearLeftWheelTransform);
+        UpdateSingleWheel(frontLeftWheelCollider, frontLeftWheelTransform, true);
+        UpdateSingleWheel(frontRightWheelCollider, frontRightWheelTransform, false);
+        UpdateSingleWheel(rearRightWheelCollider, rearRightWheelTransform, false);
+        UpdateSingleWheel(rearLeftWheelCollider, rearLeftWheelTransform, true);
     }
 
-    private void UpdateSingleWheel(WheelCollider wheelCollider, Transform wheelTransform)
+    private void UpdateSingleWheel(WheelCollider wheelCollider, Transform wheelTransform, bool isLeft)
     {
+       
         Vector3 pos;
         Quaternion rot;
         wheelCollider.GetWorldPose(out pos, out rot);
+
+ 
+
+        if (isLeft )
+            rot *= Quaternion.Euler(0, 0, -90);
+        else
+            rot *= Quaternion.Euler(0, 0, 90);
+
+
         wheelTransform.rotation = rot;
         wheelTransform.position = pos;
+    }
+
+    private void CameronView()
+    {
+        if (Input.GetKeyDown(KeyCode.Tab))
+        {
+            isFirstPersonView = !isFirstPersonView;
+        }
+
+        if (isFirstPersonView)
+        {
+            virtualCamera.LookAt = firstPersonLookPoint;
+            virtualCamera.Follow = firstPersonLookPoint;
+            // Set Cinemachine Virtual Camera body follow offset for first person
+            CinemachineTransposer transposer = virtualCamera.GetCinemachineComponent<CinemachineTransposer>();
+            if (transposer)
+            {
+                transposer.m_FollowOffset = firstPersonOffset;
+            }
+        }
+        else
+        {
+            virtualCamera.LookAt = ThirdPersonLookPoint;
+            virtualCamera.Follow = ThirdPersonLookPoint;
+            // Set Cinemachine Virtual Camera body follow offset for third person
+            CinemachineTransposer transposer = virtualCamera.GetCinemachineComponent<CinemachineTransposer>();
+            if (transposer)
+            {
+                transposer.m_FollowOffset = thirdPersonOffset;
+            }
+        }
     }
 }
